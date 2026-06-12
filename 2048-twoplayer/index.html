@@ -873,46 +873,125 @@ const KEY_MAP={
 document.addEventListener('keydown',e=>{
   if(e.target.getAttribute('contenteditable')==='true')return;
   const k=KEY_MAP[e.key];
-  if(k){e.preventDefault();if(!demoOn)doMove(k[0],k[1]);return;}
+  if(k){e.preventDefault();if(demoOn)stopDemo();doMove(k[0],k[1]);return;}
   if(e.key==='r'||e.key==='R'){stopDemo();initGame();}
   if(e.key==='Escape')document.getElementById('help-modal').classList.add('hidden');
 });
-const gpCooldown=[0,0],gpPrevBtn=[[],[]];
+const gpHold=[null,null];
+let gpSlots=[null,null];
+const gpNeutralAxes={};
+const gpRestartHeld={};
 function gpDirFromAxes(ax,ay){
   if(Math.abs(ax)<0.5&&Math.abs(ay)<0.5)return null;
   return Math.abs(ax)>Math.abs(ay)?(ax<0?'left':'right'):(ay<0?'up':'down');
 }
-function gpDirFromDpad(gp){
-  if(gp.buttons[12]&&gp.buttons[12].pressed)return 'up';
-  if(gp.buttons[13]&&gp.buttons[13].pressed)return 'down';
-  if(gp.buttons[14]&&gp.buttons[14].pressed)return 'left';
-  if(gp.buttons[15]&&gp.buttons[15].pressed)return 'right';
-  const hat=gp.axes[9];
-  if(hat!==undefined){
-    if(hat<-0.7)return 'up';if(hat<-0.1)return 'right';
-    if(hat<0.4)return 'down';if(hat<0.9)return 'left';return 'up';
+function ensureGpNeutral(gp){
+  if(!gpNeutralAxes[gp.index])gpNeutralAxes[gp.index]=[...(gp.axes||[])];
+}
+function gpDirFromAxisPairs(gp){
+  ensureGpNeutral(gp);
+  const axes=gp.axes||[];
+  const neutral=gpNeutralAxes[gp.index]||[];
+  for(const [x,y] of [[0,1],[2,3],[4,5],[6,7]]){
+    const dir=gpDirFromAxes((axes[x]||0)-(neutral[x]||0),(axes[y]||0)-(neutral[y]||0));
+    if(dir)return dir;
   }
   return null;
 }
+function gpDirFromLegacyButtons(gp){
+  const buttons=gp.buttons||[];
+  const groups=[
+    [[12,'up'],[13,'down'],[14,'left'],[15,'right']],
+    [[0,'up'],[1,'down'],[2,'left'],[3,'right']]
+  ];
+  for(const group of groups){
+    for(const [idx,dir] of group){
+      if(buttons[idx]&&buttons[idx].pressed)return dir;
+    }
+  }
+  return null;
+}
+function gpDirFromHatValue(hat,neutral){
+  if(hat===undefined||hat===null||Math.abs(hat)>1.01)return null;
+  if(neutral!==undefined&&Math.abs(hat-neutral)<0.05)return null;
+  if(hat<-0.7)return 'up';
+  if(hat<-0.1)return 'right';
+  if(hat<0.4)return 'down';
+  if(hat<0.9)return 'left';
+  return 'up';
+}
+function gpDirFromDpad(gp){
+  const buttonDir=gpDirFromLegacyButtons(gp);
+  if(buttonDir)return buttonDir;
+  ensureGpNeutral(gp);
+  const neutral=gpNeutralAxes[gp.index]||[];
+  for(const axis of [9,8,7,6]){
+    const dir=gpDirFromHatValue(gp.axes[axis],neutral[axis]);
+    if(dir)return dir;
+  }
+  return null;
+}
+function getConnectedGamepads(){
+  return [...(navigator.getGamepads?navigator.getGamepads():[])]
+    .filter(Boolean)
+    .sort((a,b)=>a.index-b.index);
+}
+function refreshGpSlots(){
+  const pads=getConnectedGamepads();
+  const activeSlots=new Set(pads.map(gp=>gp.index));
+  gpSlots=gpSlots.map(idx=>activeSlots.has(idx)?idx:null);
+  for(const gp of pads){
+    ensureGpNeutral(gp);
+  }
+  return pads;
+}
+function assignGpPlayer(gp,pads){
+  const existing=gpSlots.indexOf(gp.index);
+  if(existing!==-1)return existing;
+  for(let i=0;i<2;i++){
+    if(gpSlots[i]===null){
+      gpSlots[i]=gp.index;
+      return i;
+    }
+  }
+  return -1;
+}
+function shouldFireGpMove(player,dir){
+  const hold=gpHold[player];
+  if(!hold||hold.dir!==dir)gpHold[player]={dir,frames:1};
+  else hold.frames++;
+  return gpHold[player].frames===1;
+}
 function updateGpStatus(){
-  const n=[...(navigator.getGamepads?navigator.getGamepads():[])].filter(Boolean).length;
-  document.getElementById('gp-status').textContent=n===0?'No gamepads':n===1?'GP1 connected':'GP1 & GP2';
+  const pads=refreshGpSlots();
+  const n=pads.length;
+  const assigned=gpSlots.map((idx,i)=>idx===null?null:'P'+(i+1)).filter(Boolean).join(' ');
+  document.getElementById('gp-status').textContent=n===0?'No gamepads':n+' gamepads'+(assigned?' - '+assigned:'');
 }
 window.addEventListener('gamepadconnected',updateGpStatus);
 window.addEventListener('gamepaddisconnected',updateGpStatus);
 function gpLoop(){
   const gps=navigator.getGamepads?navigator.getGamepads():[];
+  const pads=refreshGpSlots();
   updateGpStatus();
-  for(let i=0;i<2;i++){
-    const gp=gps[i];if(!gp)continue;
-    for(const b of [6,7,8,9]){
-      const pressed=gp.buttons[b]&&gp.buttons[b].pressed;
-      if(pressed&&!gpPrevBtn[i][b]){stopDemo();initGame();}
-      gpPrevBtn[i][b]=pressed;
+  for(const gp of pads){
+    const restartPressed=[8,9].some(b=>gp.buttons[b]&&gp.buttons[b].pressed);
+    if(restartPressed&&!gpRestartHeld[gp.index]){
+      stopDemo();initGame();
     }
-    if(gpCooldown[i]>0){gpCooldown[i]--;continue;}
-    const dir=gpDirFromAxes(gp.axes[0]||0,gp.axes[1]||0)||gpDirFromDpad(gp);
-    if(dir&&!demoOn){doMove(i,dir);gpCooldown[i]=12;}
+    gpRestartHeld[gp.index]=restartPressed;
+    const dir=gpDirFromDpad(gp)||gpDirFromAxisPairs(gp);
+    if(!dir)continue;
+    const i=assignGpPlayer(gp,pads);
+    if(i===-1||!shouldFireGpMove(i,dir))continue;
+    if(demoOn)stopDemo();
+    doMove(i,dir);
+  }
+  for(let i=0;i<2;i++){
+    const idx=gpSlots[i];
+    const gp=idx===null?null:gps[idx];
+    const dir=gp&&(gpDirFromDpad(gp)||gpDirFromAxisPairs(gp));
+    if(!dir)gpHold[i]=null;
   }
   requestAnimationFrame(gpLoop);
 }
