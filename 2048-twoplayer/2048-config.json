@@ -1,0 +1,9 @@
+{
+  "playerNames": ["Player 1", "Player 2"],
+  "sfxOn": true,
+  "musicOn": true,
+  "darkMode": false,
+  "demoSpeed": 2,
+  "aiDepth": 3,
+  "attractDelay": 60
+}
