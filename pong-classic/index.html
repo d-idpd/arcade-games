@@ -2,20 +2,582 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pong Classic — Coming Soon</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Pong Classic - Kindness Rally</title>
 <style>
-  body { background: #1a1a2e; color: #fff; font-family: 'Segoe UI', Arial, sans-serif;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    height: 100dvh; margin: 0; gap: 16px; }
-  h1 { font-size: 2rem; }
-  p  { color: #888; }
-  a  { color: #FFB43C; text-decoration: none; font-weight: 700; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #07131f;
+  --panel: #0d2236;
+  --line: #38d6ff;
+  --p1: #63d8ff;
+  --p2: #ff8db8;
+  --accent: #ffd166;
+  --text: #f7fbff;
+  --muted: #9bb4c9;
+}
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", Arial, sans-serif;
+  touch-action: none;
+  user-select: none;
+}
+body {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+header, footer {
+  background: rgba(13,34,54,0.94);
+  border-color: rgba(56,214,255,0.35);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  min-height: 40px;
+}
+header { border-bottom: 1px solid rgba(56,214,255,0.35); }
+footer { border-top: 1px solid rgba(56,214,255,0.35); }
+.brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
+h1 { font-size: 15px; line-height: 1; white-space: nowrap; }
+.sub { font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scoreboard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 900;
+  font-size: clamp(18px, 4vw, 30px);
+}
+.score.p1 { color: var(--p1); }
+.score.p2 { color: var(--p2); }
+.to-win { font-size: 10px; color: var(--muted); font-weight: 600; }
+.buttons { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+button, a.btn {
+  border: 0;
+  border-radius: 14px;
+  background: var(--accent);
+  color: #201600;
+  font-weight: 800;
+  font-size: 11px;
+  padding: 6px 10px;
+  min-height: 30px;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+button.secondary, a.btn.secondary { background: #18334f; color: var(--text); border: 1px solid rgba(255,255,255,0.14); }
+button.off { opacity: 0.55; }
+#stage-wrap {
+  position: relative;
+  min-height: 0;
+  background:
+    radial-gradient(circle at 25% 20%, rgba(99,216,255,0.18), transparent 28%),
+    radial-gradient(circle at 75% 80%, rgba(255,141,184,0.16), transparent 30%),
+    #06111d;
+}
+#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.touch-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  z-index: 3;
+}
+#touch-left { left: 0; }
+#touch-right { right: 0; }
+.center-message {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  text-align: center;
+  padding: 14px;
+  z-index: 4;
+}
+.message-box {
+  background: rgba(7,19,31,0.78);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 8px;
+  padding: 10px 14px;
+  max-width: min(520px, 92vw);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.28);
+}
+.message-box .big { font-size: clamp(18px, 4vw, 32px); font-weight: 900; color: var(--accent); }
+.message-box .small { margin-top: 5px; font-size: 12px; color: var(--muted); line-height: 1.4; }
+.hidden { display: none; }
+#rescue-log {
+  font-size: 10px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.help {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.62);
+  z-index: 20;
+  padding: 14px;
+}
+.help.hidden { display: none; }
+.help-box {
+  background: var(--panel);
+  border: 1px solid rgba(56,214,255,0.38);
+  border-radius: 8px;
+  width: min(560px, 96vw);
+  max-height: 88dvh;
+  overflow: auto;
+  padding: 16px;
+  color: var(--text);
+}
+.help-box h2 { font-size: 17px; margin-bottom: 8px; color: var(--accent); }
+.help-box h3 { font-size: 13px; margin: 12px 0 5px; color: var(--p1); }
+.help-box p, .help-box li { font-size: 12px; line-height: 1.5; color: var(--muted); }
+.help-box ul { padding-left: 18px; }
+@media (orientation: portrait) {
+  body::before {
+    content: "Turn your phone sideways for the best Pong court.";
+    position: fixed;
+    inset: 0;
+    background: #07131f;
+    color: var(--text);
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 28px;
+    font-size: 20px;
+    font-weight: 800;
+  }
+}
+@media (max-height: 430px) and (orientation: landscape) {
+  header, footer { min-height: 32px; padding: 4px 8px; }
+  h1 { font-size: 13px; }
+  .sub, .to-win, #rescue-log { font-size: 9px; }
+  button, a.btn { min-height: 26px; padding: 4px 8px; font-size: 10px; }
+}
 </style>
 </head>
 <body>
-  <h1>🎮 Pong Classic</h1>
-  <p>Coming soon...</p>
-  <a href="../">← Back to Arcade</a>
+<header>
+  <div class="brand">
+    <div>
+      <h1>Pong Classic</h1>
+      <div class="sub">Kindness Rally - phone landscape friendly</div>
+    </div>
+  </div>
+  <div class="scoreboard" aria-label="Score">
+    <span class="score p1" id="score0">0</span>
+    <span class="to-win">first to 7</span>
+    <span class="score p2" id="score1">0</span>
+  </div>
+  <div class="buttons">
+    <button id="demo-btn" class="secondary off">Demo</button>
+    <button id="help-btn" class="secondary">?</button>
+    <button id="restart-btn">Restart</button>
+  </div>
+</header>
+
+<main id="stage-wrap">
+  <canvas id="game"></canvas>
+  <div class="touch-zone" id="touch-left" aria-label="Player 1 touch control"></div>
+  <div class="touch-zone" id="touch-right" aria-label="Player 2 touch control"></div>
+  <div class="center-message" id="message">
+    <div class="message-box">
+      <div class="big">Ready?</div>
+      <div class="small">Drag each side of the screen to move. P1 uses W/S, P2 uses Up/Down. Behind players get friendly rescues.</div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div id="rescue-log">Rescues: bigger paddle, bubble save, gentle serve, sparkle nudge.</div>
+  <div class="buttons">
+    <span id="gp-status" class="sub">No gamepads</span>
+    <a class="btn secondary" href="../">Arcade</a>
+  </div>
+</footer>
+
+<div class="help hidden" id="help-modal">
+  <div class="help-box">
+    <h2>How To Play</h2>
+    <p>Keep the ball in play and score when it passes the other paddle. The first player to 7 wins.</p>
+    <h3>Controls</h3>
+    <ul>
+      <li>Phone: drag on the left half for Player 1 and right half for Player 2.</li>
+      <li>Keyboard: W/S for Player 1, Arrow Up/Down for Player 2.</li>
+      <li>Gamepads: left stick, right stick, or D-pad up/down.</li>
+    </ul>
+    <h3>Kid-Friendly Rescues</h3>
+    <ul>
+      <li>Stretch Paddle: a player who is behind gets a taller paddle.</li>
+      <li>Bubble Save: if a behind player barely misses, the ball pops back once.</li>
+      <li>Gentle Serve: after a point, the ball serves slower toward the player who is behind.</li>
+      <li>Sparkle Nudge: when someone is far behind, the ball bends slightly toward their paddle.</li>
+    </ul>
+    <button id="help-close">Close</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const wrap = document.getElementById('stage-wrap');
+const scoreEls = [document.getElementById('score0'), document.getElementById('score1')];
+const msg = document.getElementById('message');
+const rescueLog = document.getElementById('rescue-log');
+const gpStatus = document.getElementById('gp-status');
+const keys = {};
+const WIN_SCORE = 7;
+let W = 960, H = 540, DPR = 1;
+let paddles, ball, score, running, demoOn, lastT, serveTimer, gameOver;
+let touchTargets = [null, null];
+let rescueTextTimer = 0;
+const gpRestartHeld = {};
+
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+function randSign(){ return Math.random()<0.5 ? -1 : 1; }
+function announce(text){
+  rescueLog.textContent = text;
+  rescueTextTimer = 180;
+}
+function showMessage(big, small){
+  msg.querySelector('.big').textContent = big;
+  msg.querySelector('.small').textContent = small;
+  msg.classList.remove('hidden');
+}
+function hideMessage(){ msg.classList.add('hidden'); }
+function resize(){
+  DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+  const r = wrap.getBoundingClientRect();
+  W = Math.max(480, r.width);
+  H = Math.max(260, r.height);
+  canvas.width = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  if(paddles){
+    paddles[0].x = Math.max(22, W * 0.035);
+    paddles[1].x = W - Math.max(22, W * 0.035);
+    for(const p of paddles) p.y = clamp(p.y, p.h/2 + 8, H - p.h/2 - 8);
+  }
+}
+window.addEventListener('resize', resize);
+
+function basePaddleH(){ return clamp(H * 0.22, 54, 96); }
+function makePaddle(i){
+  return {
+    x: i===0 ? Math.max(22, W * 0.035) : W - Math.max(22, W * 0.035),
+    y: H / 2,
+    w: clamp(W * 0.014, 8, 13),
+    h: basePaddleH(),
+    vy: 0,
+    bubbleReady: true,
+    flash: 0,
+    color: i===0 ? '#63d8ff' : '#ff8db8'
+  };
+}
+function resetBall(server){
+  const diff = score[0] - score[1];
+  const behind = diff===0 ? server : (diff>0 ? 1 : 0);
+  const toward = behind===0 ? -1 : 1;
+  const gentle = Math.abs(diff) >= 2;
+  const speed = clamp(W * (gentle ? 0.34 : 0.42), 260, gentle ? 360 : 460);
+  ball = {
+    x: W / 2,
+    y: H / 2,
+    r: clamp(Math.min(W,H) * 0.018, 6, 11),
+    vx: speed * toward,
+    vy: randSign() * speed * (0.22 + Math.random() * 0.18),
+    speed,
+    trail: []
+  };
+  serveTimer = 0.9;
+  if(gentle) announce('Gentle serve for Player ' + (behind+1) + '.');
+}
+function newGame(){
+  resize();
+  score = [0,0];
+  paddles = [makePaddle(0), makePaddle(1)];
+  running = true;
+  gameOver = false;
+  serveTimer = 1.15;
+  resetBall(Math.random()<0.5 ? 0 : 1);
+  updateScore();
+  showMessage('Pong Classic', 'Tap, drag, press a key, or use a gamepad to start.');
+  setTimeout(hideMessage, 1300);
+}
+function updateScore(){
+  scoreEls[0].textContent = score[0];
+  scoreEls[1].textContent = score[1];
+}
+function point(winner){
+  score[winner]++;
+  updateScore();
+  if(score[winner] >= WIN_SCORE){
+    gameOver = true;
+    running = false;
+    showMessage('Player ' + (winner+1) + ' wins!', 'Great rally. Press Restart to play again.');
+    return;
+  }
+  paddles[0].bubbleReady = true;
+  paddles[1].bubbleReady = true;
+  resetBall(1-winner);
+}
+function rescueGap(pi){
+  return score[1-pi] - score[pi];
+}
+function updatePaddleHelp(){
+  for(let i=0;i<2;i++){
+    const gap = rescueGap(i);
+    const target = basePaddleH() * (gap >= 4 ? 1.7 : gap >= 2 ? 1.35 : 1);
+    paddles[i].h += (target - paddles[i].h) * 0.08;
+  }
+}
+function moveInput(dt){
+  const speed = H * 1.35;
+  const dirs = [0,0];
+  if(keys.KeyW) dirs[0] -= 1;
+  if(keys.KeyS) dirs[0] += 1;
+  if(keys.ArrowUp) dirs[1] -= 1;
+  if(keys.ArrowDown) dirs[1] += 1;
+  if(demoOn){
+    for(let i=0;i<2;i++){
+      const p = paddles[i];
+      const aim = ball.y + (ball.vy * 0.16);
+      dirs[i] = clamp((aim - p.y) / 80, -1, 1);
+    }
+  }
+  for(let i=0;i<2;i++){
+    const p = paddles[i];
+    if(touchTargets[i] !== null){
+      p.y += (touchTargets[i] - p.y) * Math.min(1, dt * 14);
+    } else {
+      p.y += dirs[i] * speed * dt;
+    }
+    p.y = clamp(p.y, p.h/2 + 8, H - p.h/2 - 8);
+    p.vy = dirs[i] * speed;
+  }
+}
+function paddleCollision(pi){
+  const p = paddles[pi];
+  const left = p.x - p.w / 2, right = p.x + p.w / 2;
+  const top = p.y - p.h / 2, bottom = p.y + p.h / 2;
+  if(ball.x + ball.r < left || ball.x - ball.r > right || ball.y + ball.r < top || ball.y - ball.r > bottom) return false;
+  const rel = clamp((ball.y - p.y) / (p.h / 2), -1, 1);
+  const dir = pi===0 ? 1 : -1;
+  ball.x = pi===0 ? right + ball.r : left - ball.r;
+  ball.speed = clamp(ball.speed * 1.035, 260, Math.max(W,H) * 0.72);
+  ball.vx = Math.abs(ball.speed) * dir;
+  ball.vy = rel * ball.speed * 0.75 + p.vy * 0.12;
+  p.flash = 12;
+  hideMessage();
+  return true;
+}
+function tryBubbleSave(pi){
+  const p = paddles[pi];
+  const gap = rescueGap(pi);
+  if(gap < 2 || !p.bubbleReady) return false;
+  const near = Math.abs(ball.y - p.y) < p.h * 0.95;
+  if(!near) return false;
+  p.bubbleReady = false;
+  p.flash = 32;
+  ball.x = pi===0 ? p.x + p.w + ball.r + 2 : p.x - p.w - ball.r - 2;
+  ball.vx = Math.abs(ball.vx) * (pi===0 ? 1 : -1);
+  ball.vy *= 0.72;
+  announce('Bubble save for Player ' + (pi+1) + '.');
+  return true;
+}
+function updateBall(dt){
+  if(serveTimer > 0){ serveTimer -= dt; return; }
+  const farBehind = rescueGap(0) >= 4 ? 0 : rescueGap(1) >= 4 ? 1 : -1;
+  if(farBehind !== -1){
+    const p = paddles[farBehind];
+    ball.vy += clamp((p.y - ball.y) * 0.55, -70, 70) * dt;
+  }
+  ball.x += ball.vx * dt;
+  ball.y += ball.vy * dt;
+  ball.trail.push([ball.x, ball.y]);
+  if(ball.trail.length > 9) ball.trail.shift();
+  if(ball.y < ball.r){
+    ball.y = ball.r;
+    ball.vy = Math.abs(ball.vy);
+  }
+  if(ball.y > H - ball.r){
+    ball.y = H - ball.r;
+    ball.vy = -Math.abs(ball.vy);
+  }
+  paddleCollision(0);
+  paddleCollision(1);
+  if(ball.x < -ball.r){
+    if(!tryBubbleSave(0)) point(1);
+  } else if(ball.x > W + ball.r){
+    if(!tryBubbleSave(1)) point(0);
+  }
+}
+function drawCourt(){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#06111d';
+  ctx.fillRect(0,0,W,H);
+  const grd = ctx.createLinearGradient(0,0,W,H);
+  grd.addColorStop(0,'rgba(99,216,255,0.12)');
+  grd.addColorStop(1,'rgba(255,141,184,0.12)');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([10,12]);
+  ctx.beginPath();
+  ctx.moveTo(W/2, 12);
+  ctx.lineTo(W/2, H-12);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = 'rgba(56,214,255,0.28)';
+  ctx.strokeRect(10,10,W-20,H-20);
+}
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+function drawPaddles(){
+  for(let i=0;i<2;i++){
+    const p = paddles[i];
+    const x = p.x - p.w/2, y = p.y - p.h/2;
+    if(p.flash > 0){
+      ctx.fillStyle = 'rgba(255,209,102,0.24)';
+      roundRect(x-8,y-8,p.w+16,p.h+16,10);
+      ctx.fill();
+      p.flash--;
+    }
+    ctx.fillStyle = p.color;
+    roundRect(x,y,p.w,p.h,8);
+    ctx.fill();
+    if(rescueGap(i) >= 2){
+      ctx.fillStyle = 'rgba(255,209,102,0.9)';
+      ctx.fillRect(x, y - 5, p.w, 3);
+      ctx.fillRect(x, y + p.h + 2, p.w, 3);
+    }
+  }
+}
+function drawBall(){
+  for(let i=0;i<ball.trail.length;i++){
+    const t = ball.trail[i];
+    ctx.globalAlpha = (i+1) / ball.trail.length * 0.25;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(t[0], t[1], ball.r * 0.75, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#fff7c8';
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);
+  ctx.fill();
+}
+function render(){
+  drawCourt();
+  drawPaddles();
+  drawBall();
+}
+function loop(t){
+  const now = t || performance.now();
+  const dt = Math.min(0.033, ((now - lastT) || 16) / 1000);
+  lastT = now;
+  if(running){
+    updatePaddleHelp();
+    moveInput(dt);
+    updateBall(dt);
+  }
+  if(rescueTextTimer > 0){
+    rescueTextTimer--;
+  } else if(rescueLog.textContent.indexOf('Rescues:') !== 0) {
+    rescueLog.textContent = 'Rescues: bigger paddle, bubble save, gentle serve, sparkle nudge.';
+  }
+  render();
+  requestAnimationFrame(loop);
+}
+document.addEventListener('keydown', e=>{
+  keys[e.code] = true;
+  if(e.code === 'Space'){ e.preventDefault(); demoOn = !demoOn; updateDemoBtn(); hideMessage(); }
+  if(e.code === 'KeyR'){ newGame(); }
+});
+document.addEventListener('keyup', e=>{ keys[e.code] = false; });
+function setTouch(pi, e){
+  const t = e.changedTouches ? e.changedTouches[0] : e;
+  const rect = wrap.getBoundingClientRect();
+  touchTargets[pi] = clamp(t.clientY - rect.top, 12, H - 12);
+  hideMessage();
+}
+function addTouch(el, pi){
+  el.addEventListener('touchstart', e=>{ setTouch(pi,e); e.preventDefault(); }, {passive:false});
+  el.addEventListener('touchmove', e=>{ setTouch(pi,e); e.preventDefault(); }, {passive:false});
+  el.addEventListener('touchend', e=>{ touchTargets[pi] = null; e.preventDefault(); }, {passive:false});
+  el.addEventListener('pointerdown', e=>{ if(e.pointerType !== 'touch'){ setTouch(pi,e); el.setPointerCapture(e.pointerId); }});
+  el.addEventListener('pointermove', e=>{ if(e.pointerType !== 'touch' && touchTargets[pi] !== null) setTouch(pi,e); });
+  el.addEventListener('pointerup', e=>{ if(e.pointerType !== 'touch') touchTargets[pi] = null; });
+}
+addTouch(document.getElementById('touch-left'),0);
+addTouch(document.getElementById('touch-right'),1);
+function gpDir(gp){
+  const axes = gp.axes || [];
+  const y = Math.abs(axes[1]||0) > Math.abs(axes[3]||0) ? axes[1]||0 : axes[3]||0;
+  if(Math.abs(y) > 0.25) return y;
+  if(gp.buttons[12]?.pressed) return -1;
+  if(gp.buttons[13]?.pressed) return 1;
+  return 0;
+}
+function gpLoop(){
+  const pads = [...(navigator.getGamepads?.() || [])].filter(Boolean).sort((a,b)=>a.index-b.index);
+  gpStatus.textContent = pads.length === 0 ? 'No gamepads' : pads.length + ' gamepad' + (pads.length===1?'':'s');
+  for(let i=0;i<Math.min(2,pads.length);i++){
+    const dir = gpDir(pads[i]);
+    if(Math.abs(dir) > 0.25){
+      paddles[i].y += dir * H * 0.028;
+      hideMessage();
+    }
+    const restartPressed = pads[i].buttons[8]?.pressed || pads[i].buttons[9]?.pressed;
+    if(restartPressed && !gpRestartHeld[pads[i].index]) newGame();
+    gpRestartHeld[pads[i].index] = restartPressed;
+  }
+  requestAnimationFrame(gpLoop);
+}
+function updateDemoBtn(){
+  document.getElementById('demo-btn').classList.toggle('off', !demoOn);
+  document.getElementById('demo-btn').textContent = demoOn ? 'Demo On' : 'Demo';
+}
+document.getElementById('demo-btn').addEventListener('click', ()=>{ demoOn=!demoOn; updateDemoBtn(); hideMessage(); });
+document.getElementById('restart-btn').addEventListener('click', newGame);
+document.getElementById('help-btn').addEventListener('click', ()=>document.getElementById('help-modal').classList.remove('hidden'));
+document.getElementById('help-close').addEventListener('click', ()=>document.getElementById('help-modal').classList.add('hidden'));
+document.getElementById('help-modal').addEventListener('click', e=>{
+  if(e.target.id === 'help-modal') document.getElementById('help-modal').classList.add('hidden');
+});
+resize();
+newGame();
+lastT = performance.now();
+requestAnimationFrame(loop);
+requestAnimationFrame(gpLoop);
+</script>
 </body>
 </html>
