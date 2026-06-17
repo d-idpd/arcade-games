@@ -47,6 +47,26 @@ header h1 span { color: var(--accent); }
   font-size: 12px;
   color: var(--txt-dim);
 }
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.header-link {
+  font-size: 12px;
+  color: var(--txt-dim);
+  text-decoration: none;
+  border: 1px solid #333;
+  border-radius: 16px;
+  padding: 5px 13px;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.header-link:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
 
 /* ── search / filter bar ── */
 #filter-bar {
@@ -180,7 +200,10 @@ footer a { color: var(--accent); text-decoration: none; }
     <h1>🕹️ <span>Arcade</span> Games</h1>
     <div class="header-sub">Two-player browser games — desktop, mobile &amp; RetroPie</div>
   </div>
-  <a href="https://idpd.us/#maker" style="font-size:12px;color:var(--txt-dim);text-decoration:none;border:1px solid #333;border-radius:16px;padding:5px 13px;transition:color 0.15s,border-color 0.15s;white-space:nowrap;" onmouseover="this.style.color='#FFB43C';this.style.borderColor='#FFB43C'" onmouseout="this.style.color='';this.style.borderColor=''">← Portfolio</a>
+  <div class="header-actions">
+    <a class="header-link" href="https://idpd.us/arcade-games/">https://idpd.us/arcade-games/</a>
+    <a class="header-link" href="https://idpd.us/#maker">← Portfolio</a>
+  </div>
 </header>
 
 <div id="filter-bar">
@@ -214,20 +237,20 @@ footer a { color: var(--accent); text-decoration: none; }
   </a>
 
   <!-- Snake Two Player -->
-  <div class="game-card coming-soon" data-tags="multiplayer">
+  <a class="game-card" href="snake-twoplayer/" data-tags="multiplayer ai ready">
     <div class="card-thumb thumb-snake">🐍</div>
     <div class="card-body">
       <div class="card-title">Snake — Two Player</div>
-      <div class="card-desc">Classic snake on a shared board. Eat pellets, grow longer, and outlast your opponent without crossing paths.</div>
+      <div class="card-desc">Two-player snake with independent boards, fruit races, rescue input, AI demo mode, and gamepad support.</div>
       <div class="card-footer">
         <div class="card-tags">
           <span class="tag multiplayer">2 Player</span>
-          <span class="tag soon">Soon</span>
+          <span class="tag ai">AI Demo</span>
         </div>
-        <span class="coming-label">Coming soon</span>
+        <button class="play-btn">Play &#9654;</button>
       </div>
     </div>
-  </div>
+  </a>
 
   <!-- Tetris Battle -->
   <div class="game-card coming-soon" data-tags="multiplayer ai">
