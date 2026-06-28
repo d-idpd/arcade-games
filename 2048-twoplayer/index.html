@@ -67,6 +67,10 @@ body.dark {
   flex: 1; display: flex; flex-direction: column;
   align-items: center; min-width: 0; min-height: 0; position: relative;
 }
+body.practice-mode #panel1,
+body.practice-mode .divider {
+  display: none;
+}
 
 .divider { width: 6px; background: var(--divider); flex-shrink: 0; }
 
@@ -325,6 +329,7 @@ body.dark {
     </div>
     <button class="bar-btn" id="sfx-btn">🔊 SFX</button>
     <button class="bar-btn" id="music-btn">🎵 Music</button>
+    <button class="bar-btn off" id="practice-btn">Practice</button>
     <button class="bar-btn off" id="demo-btn">🤖 Demo</button>
     <button class="bar-btn off" id="dark-btn">🌙 Dark</button>
     <button class="bar-btn" id="help-btn">?</button>
@@ -563,11 +568,33 @@ function updateStreakDisplay(){
 //  PLAYER STATE
 // ═══════════════════════════════════════════════════════
 let players=[null,null];
+let singlePractice=false;
+function activePlayerIndices(){ return singlePractice?[0]:[0,1]; }
+function updatePracticeBtn(){
+  const btn=document.getElementById('practice-btn');
+  if(!btn)return;
+  btn.textContent=singlePractice?'Practice ON':'Practice';
+  btn.classList.toggle('off',!singlePractice);
+}
+function setPracticeMode(on){
+  singlePractice=on;
+  document.body.classList.toggle('practice-mode',singlePractice);
+  updatePracticeBtn();
+  stopDemo();
+  initGame();
+}
 function makePlayer(){
   return {board:emptyBoard(),score:0,best:0,moves:0,
           won:false,lost:false,rescueTimer:0,shakeTimer:0,_scoreGain:0};
 }
 function checkEndGame(){
+  if(singlePractice){
+    const p=players[0];
+    if(!(p.won||p.lost))return;
+    stopDemo(); stopMusic();
+    setOverlay(0,p.won?'🎉 YOU WIN!':'Practice Over',p.won?'#FFD264':'#FF6478',p.won?'Nice practice run!':'No more moves.',p.score,p.moves);
+    playWin();resetAttractTimer();return;
+  }
   const d0=players[0].won||players[0].lost,d1=players[1].won||players[1].lost;
   if(!d0&&!d1) return;
   if(!players[0].won) players[0].lost=true;
@@ -593,6 +620,8 @@ function setOverlay(i,title,color,sub,score,moves){
   document.getElementById('oStats'+i).textContent='Score: '+score+' | Moves: '+moves;
 }
 function initGame(){
+  document.body.classList.toggle('practice-mode',singlePractice);
+  updatePracticeBtn();
   for(let i=0;i<2;i++){
     players[i]=makePlayer();
     addTile(players[i].board);addTile(players[i].board);
@@ -650,7 +679,7 @@ function render(i,mergedCells,newPos){
   const gw=document.getElementById('gridwrap'+i);
   gw.style.transform=p.shakeTimer>0?'translateX('+(5*Math.sin(p.shakeTimer*1.2))+'px)':'';
 }
-function renderAll(){ render(0);render(1); }
+function renderAll(){ render(0);if(!singlePractice)render(1); }
 function spawnScorePopup(pi,pos,gain){
   if(!pos)return;
   const gw=document.getElementById('gridwrap'+pi);
@@ -670,6 +699,7 @@ function spawnScorePopup(pi,pos,gain){
 //  MOVE EXECUTION
 // ═══════════════════════════════════════════════════════
 function doMove(pi,dir){
+  if(singlePractice&&pi!==0)return;
   resumeAC();if(musicOn&&!bgPlaying)startMusic();resetAttractTimer();
   const p=players[pi];if(p.won||p.lost)return;
   const {board,score,changed,highestMerge,mergedCells}=applyMove(p.board,dir);
@@ -787,7 +817,7 @@ function updateSpeedLabel(){document.getElementById('speed-label').textContent=S
 function demoStep(){
   if(!demoOn)return;
   let anyActive=false;
-  for(let pi=0;pi<2;pi++){const p=players[pi];if(p.won||p.lost)continue;anyActive=true;const dir=aiBestMove(p.board);if(dir)doMove(pi,dir);}
+  for(const pi of activePlayerIndices()){const p=players[pi];if(p.won||p.lost)continue;anyActive=true;const dir=aiBestMove(p.board);if(dir)doMove(pi,dir);}
   if(anyActive)demoTimer=setTimeout(demoStep,getDemoInterval());
   else{demoOn=false;updateDemoBtn();}
 }
@@ -856,6 +886,7 @@ document.getElementById('help-modal').addEventListener('click',e=>{
     document.getElementById('help-modal').classList.add('hidden');
 });
 document.getElementById('restart-btn').addEventListener('click',()=>{stopDemo();initGame();});
+document.getElementById('practice-btn').addEventListener('click',()=>setPracticeMode(!singlePractice));
 for(let i=0;i<2;i++){
   const el=document.getElementById('name'+i);
   el.addEventListener('blur',()=>{const n=el.textContent.trim()||('Player '+(i+1));el.textContent=n;CFG.playerNames[i]=n;saveConfig();});
@@ -948,6 +979,10 @@ function refreshGpSlots(){
 function assignGpPlayer(gp,pads){
   const existing=gpSlots.indexOf(gp.index);
   if(existing!==-1)return existing;
+  if(singlePractice){
+    if(gpSlots[0]===null){gpSlots[0]=gp.index;return 0;}
+    return -1;
+  }
   for(let i=0;i<2;i++){
     if(gpSlots[i]===null){
       gpSlots[i]=gp.index;
@@ -966,7 +1001,7 @@ function updateGpStatus(){
   const pads=refreshGpSlots();
   const n=pads.length;
   const assigned=gpSlots.map((idx,i)=>idx===null?null:'P'+(i+1)).filter(Boolean).join(' ');
-  document.getElementById('gp-status').textContent=n===0?'No gamepads':n+' gamepads'+(assigned?' - '+assigned:'');
+  document.getElementById('gp-status').textContent=n===0?'No gamepads':n+' gamepads'+(assigned?' - '+assigned:'')+(singlePractice?' practice':'');
 }
 window.addEventListener('gamepadconnected',updateGpStatus);
 window.addEventListener('gamepaddisconnected',updateGpStatus);

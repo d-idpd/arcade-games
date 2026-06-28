@@ -50,6 +50,10 @@ body {
   flex: 1; display: flex; flex-direction: column;
   align-items: center; min-width: 0; min-height: 0; position: relative;
 }
+body.practice-mode #panel1,
+body.practice-mode .divider {
+  display: none;
+}
 
 /* ── header ── */
 .header {
@@ -263,6 +267,7 @@ canvas {
   <div id="bar-right">
     <span id="gp-status">No gamepads</span>
     <button class="bar-btn" id="sfx-btn">🔊 SFX</button>
+    <button class="bar-btn off" id="practice-btn">Practice</button>
     <button class="bar-btn off" id="demo-btn">🤖 Demo</button>
     <button class="bar-btn" id="help-btn">?</button>
     <button class="bar-btn" id="restart-btn">↺ Restart</button>
@@ -401,6 +406,21 @@ const DIR = { UP:[0,-1], DOWN:[0,1], LEFT:[-1,0], RIGHT:[1,0] };
 
 let snakes, food, gameOver, gameStarted;
 let demoOn=false;
+let singlePractice=false;
+function activePlayerIndices(){ return singlePractice?[0]:[0,1]; }
+function updatePracticeBtn(){
+  const btn=document.getElementById('practice-btn');
+  if(!btn)return;
+  btn.textContent=singlePractice?'Practice ON':'Practice';
+  btn.classList.toggle('off',!singlePractice);
+}
+function setPracticeMode(on){
+  singlePractice=on;
+  document.body.classList.toggle('practice-mode',singlePractice);
+  updatePracticeBtn();
+  stopDemo();
+  initGame();
+}
 
 // Win streaks
 let streaks=[0,0];
@@ -475,12 +495,16 @@ function respawnFoodForPlayer(pi){
 }
 
 function initGame(){
+  document.body.classList.toggle('practice-mode',singlePractice);
+  updatePracticeBtn();
   clearTimeout(tickTimers[0]); clearTimeout(tickTimers[1]);
   snakes=[makeSnake(0),makeSnake(1)];
   gameOver=false; gameStarted=false;
   spawnFood();
   for(let i=0;i<2;i++){
     document.getElementById('overlay'+i).classList.add('hidden');
+    document.getElementById('cd'+i).classList.add('hidden');
+    document.getElementById('rescued'+i).classList.add('hidden');
   }
   updateHeaders();
   resizeCanvases();
@@ -493,7 +517,7 @@ function startCountdown(){
   const counts=['3','2','1','GO!'];
   let idx=0;
   function tick(){
-    for(let i=0;i<2;i++){
+    for(const i of activePlayerIndices()){
       const el=document.getElementById('cd'+i);
       el.textContent=counts[idx];
       el.classList.remove('hidden');
@@ -524,16 +548,18 @@ function startCountdown(){
 const tickTimers=[null,null];
 
 function scheduleTickFor(pi){
+  if(singlePractice&&pi!==0)return;
   clearTimeout(tickTimers[pi]);
   tickTimers[pi]=setTimeout(()=>{ stepSnake(pi); }, CFG.tickMs);
 }
 
 function scheduleTick(){
   stepSnake(0);
-  stepSnake(1);
+  if(!singlePractice)stepSnake(1);
 }
 
 function stepSnake(pi){
+  if(singlePractice&&pi!==0) return;
   if(gameOver||!gameStarted) return;
   const s=snakes[pi];
   if(s.dead||s.waitingForRescueInput) return;
@@ -588,13 +614,14 @@ function stepSnake(pi){
 function gameTick(){
   // Legacy entry from countdown — now just kicks off per-player timers
   scheduleTickFor(0);
-  scheduleTickFor(1);
+  if(!singlePractice)scheduleTickFor(1);
 }
 
 // Immediately step a snake on input and reset its auto-timer.
 // If same direction as current travel → step right now (turbo).
 // If new direction → apply direction and step right now.
 function inputStep(pi, dir){
+  if(singlePractice&&pi!==0) return;
   const s=snakes[pi];
   if(!s||s.dead||s.waitingForRescueInput||!gameStarted) return;
   // Apply direction change unless it's a 180
@@ -660,6 +687,7 @@ function triggerRescueFlash(pi){
 }
 
 function resumeRescuedSnake(pi, dir){
+  if(singlePractice&&pi!==0) return;
   const s=snakes[pi];
   if(!s.waitingForRescueInput) return;
   if(dir[0]+s.dir[0]===0&&dir[1]+s.dir[1]===0) return;
@@ -674,6 +702,15 @@ function endGame(winnerPi){
   gameOver=true;
   clearTimeout(tickTimers[0]); clearTimeout(tickTimers[1]);
   const s0=snakes[0].score, s1=snakes[1].score;
+  if(singlePractice){
+    snakes[0].dead=true; snakes[1].dead=true;
+    document.getElementById('rescued0').classList.add('hidden');
+    document.getElementById('rescued1').classList.add('hidden');
+    setOverlay(0,winnerPi===0?'🏆 PRACTICE WIN!':'Practice Over',winnerPi===0?'#FFD264':'#ff6b6b',winnerPi===0?'You ate '+CFG.winFruits+' fruits!':'Try another run.',s0,snakes[0].segs.length);
+    playWin();
+    drawAll();
+    return;
+  }
 
   // Freeze both
   snakes[0].dead=true; snakes[1].dead=true;
@@ -884,7 +921,7 @@ function aiDir(pi){
 
 function demoTick(){
   if(!gameStarted||gameOver) return;
-  aiDir(0); aiDir(1);
+  for(const pi of activePlayerIndices()) aiDir(pi);
 }
 
 let demoInterval=null;
@@ -948,14 +985,14 @@ function gpDpad(gp){
 function updateGpStatus(){
   const n=[...(navigator.getGamepads?.()??[])].filter(Boolean).length;
   document.getElementById('gp-status').textContent=
-    n===0?'No gamepads':n===1?'GP1 connected':'GP1 & GP2';
+    (n===0?'No gamepads':n===1?'GP1 connected':'GP1 & GP2')+(singlePractice?' practice':'');
 }
 window.addEventListener('gamepadconnected',updateGpStatus);
 window.addEventListener('gamepaddisconnected',updateGpStatus);
 function gpLoop(){
   const gps=navigator.getGamepads?.()??[];
   updateGpStatus();
-  for(let i=0;i<2;i++){
+  for(const i of activePlayerIndices()){
     const gp=gps[i]; if(!gp) continue;
     for(const b of [6,7,8,9]){
       const pressed=gp.buttons[b]?.pressed;
@@ -1004,6 +1041,7 @@ document.getElementById('sfx-btn').addEventListener('click',()=>{
   document.getElementById('sfx-btn').classList.toggle('off',!CFG.sfxOn);
 });
 document.getElementById('restart-btn').addEventListener('click',()=>{ stopDemo(); initGame(); });
+document.getElementById('practice-btn').addEventListener('click',()=>setPracticeMode(!singlePractice));
 document.getElementById('help-btn').addEventListener('click',()=>document.getElementById('help-modal').classList.remove('hidden'));
 document.getElementById('help-close').addEventListener('click',()=>document.getElementById('help-modal').classList.add('hidden'));
 document.getElementById('help-modal').addEventListener('click',e=>{
