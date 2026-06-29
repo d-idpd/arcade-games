@@ -469,6 +469,10 @@ const DIR = { UP:[0,-1], DOWN:[0,1], LEFT:[-1,0], RIGHT:[1,0] };
 let snakes, food, gameOver, gameStarted;
 let demoOn=false;
 let singlePractice=false;
+function urlWantsPractice(){
+  const params=new URLSearchParams(location.search);
+  return params.get('practice')==='1'||params.get('practice')==='true'||params.get('mode')==='practice'||location.hash==='#practice';
+}
 function activePlayerIndices(){ return singlePractice?[0]:[0,1]; }
 function updatePracticeBtn(){
   const btn=document.getElementById('practice-btn');
@@ -1143,6 +1147,9 @@ for(let i=0;i<2;i++){
 updateStreakDisplay();
 resizeCanvases();
 requestAnimationFrame(()=>requestAnimationFrame(()=>{
+  singlePractice=urlWantsPractice();
+  document.body.classList.toggle('practice-mode',singlePractice);
+  updatePracticeBtn();
   resizeCanvases();
   initGame();
   animLoop();

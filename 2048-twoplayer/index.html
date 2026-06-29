@@ -631,6 +631,10 @@ function updateStreakDisplay(){
 // ═══════════════════════════════════════════════════════
 let players=[null,null];
 let singlePractice=false;
+function urlWantsPractice(){
+  const params=new URLSearchParams(location.search);
+  return params.get('practice')==='1'||params.get('practice')==='true'||params.get('mode')==='practice'||location.hash==='#practice';
+}
 function activePlayerIndices(){ return singlePractice?[0]:[0,1]; }
 function updatePracticeBtn(){
   const btn=document.getElementById('practice-btn');
@@ -1113,7 +1117,9 @@ requestAnimationFrame(gpLoop);
 //  BOOT
 // ═══════════════════════════════════════════════════════
 requestAnimationFrame(()=>requestAnimationFrame(()=>{
-  applyConfig();updateStreakDisplay();recalcGridSize();buildGrids();initGame();
+  singlePractice=urlWantsPractice();
+  document.body.classList.toggle('practice-mode',singlePractice);
+  applyConfig();updatePracticeBtn();updateStreakDisplay();recalcGridSize();buildGrids();initGame();
 }));
 </script>
 </body>
