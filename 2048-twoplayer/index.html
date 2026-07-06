@@ -264,6 +264,31 @@ body.practice-mode .practice-ad {
 #gp-status { font-size: 10px; color: var(--bar-txt); white-space: nowrap; }
 /* hide gamepad status on touch screens */
 @media (hover: none) and (pointer: coarse) { #gp-status { display: none; } }
+@media (max-width: 700px), (hover: none) and (pointer: coarse) {
+  #bottom-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    justify-content: flex-start;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+    touch-action: pan-x;
+  }
+  #controls-hint,
+  #bar-right {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    touch-action: pan-x;
+  }
+  #bar-right { min-width: max-content; }
+  .bar-btn,
+  #speed-wrap,
+  #gp-status {
+    flex: 0 0 auto;
+    touch-action: pan-x;
+  }
+}
 
 /* ── help modal ── */
 #help-modal {
